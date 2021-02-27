@@ -1386,22 +1386,27 @@ void modExp(struct bn*  x, struct bn*   e, int eBits, struct bn*  m, int mBits, 
 
 Xml_validator::Xml_validator(char* file){
     
-    char *certificate=(char*)malloc(sizeof(char)*2000);//dynamically created array 
+    char *certificate=(char*)malloc(sizeof(char)*5000);//dynamically created array 
     
-  //  char *Reference=(char*)malloc(sizeof(char)*1000);
+  
     strcpy(file_name_perm,file);
 
     Digest certificatev,Digestv,Signed,SignedI;
     //storing X509 certificate value
     certificatev=getTagvalue(Tag_X509,certificate);
 
-    for(int i=0;i<certificatev.len;i++){
+    for(int i=0;i<certificatev.len;i++)
+    {
         X509[i]=*(i+*(certificatev.ptr));
     }
+
+
     // storing Digest value
     Digestv=getTagvalue(Tag_Digest_value,certificate);
   //  printf("\nhello  %d\n",Digestv.len);
-    for(int i=0;i<Digestv.len;i++){
+   
+    for(int i=0;i<Digestv.len;i++)
+    {
         Digest_Value[i]=*(i+*(Digestv.ptr));
     }
 
@@ -1416,123 +1421,14 @@ Xml_validator::Xml_validator(char* file){
     SignedI=getTagvalue(Signed_Info_Tag,certificate);
 
     
-    for(int i=0;i<SignedI.len;i++){
+    for(int i=0;i<SignedI.len;i++)
+    {
         Signed_Info[i]=*(i+*(SignedI.ptr));
     }
-    // generating two files (reference and signed info)
-    fp=fopen(file,"r");
-    
-     
-    char buf[1000];
-    
-    char tagi[30]="</Permission>";//for getting reference
-    char tage[30]="</UAPermission>";
-    
-    char *ptr1,*ptr2;
-  
-    int c_flag_i=0,c_flag_e=0,line=0;
-
-    int index[2][2]={{0,0},{0,0}};
    
-    int  aux=0;
-    int R_c=0;
-    int c=0;
-    int flag=0;
-    while(fscanf(fp, "%s", buf) != EOF )
-{  
-    line=line+1;
-
-    if(isSubstring(tagi,buf)!=-1 || isSubstring(tage,buf)!=-1 ){
-       // printf(" %d ",line);
-        if (isSubstring(tagi,buf)!=-1){       //for "<X509Certificate>"
-          // printf("start");
-           index[0][0]=line;
-           index[0][1]=isSubstring(tagi,buf);
-           c_flag_i=1;
-           aux=1;
-           flag=flag+1;
-        }
-        if(isSubstring(tage,buf)!=-1){                          //for "</X509Certificate>"
-          // printf(" __end");
-           index[1][0]=line;
-           index[1][1]=isSubstring(tage,buf);
-          // printf("\n%d   %d\n",index[1][0],index[1][1]);
-           c_flag_e=1;
-           flag=flag+1;
-         
-        }
-        }
-        
-        if(c_flag_i==1 && c_flag_e==0 ){
-            
-        if (aux==1){
-
-        for(int u=index[0][1]+strlen(tagi);u<strlen(buf);u++)
-        {
-            certificate[c]=buf[u];
-            
-            c++;
-        }
-        for(int i=0;i<index[0][1]+strlen(tagi);i++)
-        {
-            Reference[R_c]=buf[i];
-            R_c++;
-        }
-         
-        aux=0;
-        }
-        else{ptr1=certificate+c;
-            ptr2=&(buf[0]);
-            memcpy(ptr1,ptr2,strlen(buf));
-            c=c+strlen(buf);
-        }
-        }
-        else if(c_flag_i==1 && c_flag_e==1 )
-        {  
-            if(index[0][0]==index[1][0])//start line and end line is same
-        {
-            for(int u=index[0][1]+strlen(tagi);u<index[1][1];u++)
-            {
-            certificate[c]=buf[u];
-            c++;
-            }
-            for(int i=index[1][1];i<strlen(buf);i++)
-            {
-                Reference[R_c]=buf[i];
-                R_c++;
-            }
-            
-            c_flag_i=0;
-            c_flag_e=0;
-
-        }else
-        {  //end line is different than start line
-           for(int u=0;u<index[1][1];u++)
-            {
-            certificate[c]=buf[u];
-            c++;
-            }
-            for(int i=index[1][1];i<strlen(buf);i++)
-            {
-                Reference[R_c]=buf[i];
-                R_c++;
-            }
-            c_flag_i=0;
-            c_flag_e=0;
-        }
-    //    break;
-        }else if(c_flag_i==0 && c_flag_e==0){
-        for(int i=0;i<strlen(buf);i++)
-         {
-            Reference[R_c]=buf[i];
-            R_c++;
-         }
-            
-
-        }else{continue;}
-        
-    }//while loop ends.
-fclose(fp);
+   
+    // generating two files (reference and signed info)
+   
    // FILE *fw_R;
    // fw_R=fopen("Reference1.txt","w+");
   //  printf("\ncount id %d\n",c);
@@ -1571,17 +1467,7 @@ fclose(fp);
    //     printf("%c",Signed_Value[i]);
    // }
   //  printf("\n\n");
-   // printf("Printing Reference section   %d\n",R_c);
-  //  printf("\n");
-    for(int i=0;i<R_c;i++){
-        printf("%c",Reference[i]);
-      //  Reference_sec[i]=(Reference[i]);
-      //  fputc(Reference[i],fw_R);
-
-    }
-    
-   
-    //fclose(fw_R);
+  //fclose(fw_R);
   //  free(Reference);
     free(certificate);
 ///////////////
@@ -1589,25 +1475,8 @@ fclose(fp);
 
     X509_to_PublicKey();
 
- //   printf("\n\n%d\n\n",pol.Exponent);
-
-  //  printf("\nprinting modulus in hex\n");
- //   for(int i=0;i<512;i++){
-  //      printf("%c",pol.Modulus[i]);
-  //  }
-
-  //  printf("\n\n");
     Calculating_Digest_Sha256();
-  //  printf("\n");
-    // for(int i=0;i<64;i++){
-      //   printf("%c",Sha_reference[i]);
-    // }
-    // printf("\n\n");
-
-   //  for(int i=0;i<64;i++){
-    //     printf("%c",Sha_SignedInfo[i]);
-   //  }
-    // printf("\n");
+  
 
 
     // getting Digest reference in hex(earlier it was in base 64)
@@ -1615,12 +1484,7 @@ fclose(fp);
    
 
     Base64_to_Hex(Digest_Value,Digest_ref_hex);
-   //  printf("\n");
-    //for(int i=0;i<64;i++){
-    //    printf("%c",Digest_ref_hex[i]);
-   // }
-   // printf("\n");
-
+  
 
 
     //getting signed value in hex
@@ -1628,18 +1492,13 @@ fclose(fp);
     
     
     Base64_to_Hex(Signed_Value,Signed_val_hex);
-    //printf("\n");
-   // for(int i=0;i<464;i++){
-   //     printf("%c",Signed_val_hex[i]);
-   // }
+  
     printf("\n");
 
 
 
     //// validation
     Comparator_Validate();
-
-
 
 }
 
