@@ -1,0 +1,898 @@
+\documentclass[18pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usetikzlibrary{shapes,arrows,arrows,positioning,fit}
+\usepackage{xspace}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\rfoot{\thepage}
+%\rfoot{Page \thepage}
+
+\renewcommand{\headrulewidth}{0pt}
+\usepackage[a4paper, total={7in, 8in}]{geometry}
+
+\title{\textbf{Omnipresent Robot Tech \\NPNT Document}}
+
+%\author{Licenciatura em Engenharia Eletrotécnica e de Computadores}
+%\date{Instituto Superior de Engenharia do Porto Politécnico do Porto}
+
+
+\begin{document}
+\maketitle
+\vspace{10cm}
+%\textbf{Lab Classes Script: }
+\textbf{Omnipresent Robot Tech}
+
+\newpage
+
+%\textbf{Version control}
+%\vspace{1cm}
+
+
+%\begin{tabular}[h!]{|p{1.5cm}|p{1.5cm}|p{5cm}|p{4cm}|}
+%\hline
+ % \textbf{Version number}   & \textbf{Date issued} & \textbf{Authors} & \textbf{Update information} \\
+ % \hline
+ %  \textbf{V1.0}  & month 2021 & Name surname (number) 
+   
+ %  name surname (number) 
+   
+ %  name surname (number) 
+   
+ %  name surname (number) 
+   
+ %  supervision: prof. name & Original version of the script \\
+  % \hline
+ %  & & & \\
+ %  \hline
+  % & & & \\
+  % \hline
+ %  & & & \\
+  % \hline
+  % & & & \\
+ %  \hline
+%\end{tabular}
+
+%\newpage
+
+\tableofcontents
+\newpage
+
+
+
+\section{Introduction}
+
+\subsection{Structure of this document}
+
+This document provides the architecture of the NPNT implementation for the RPAS manufactured in Omnipresent Robot Tech.  The document discusses different scenarios with well-established protocols that are needed to maintain aspects like security, traceability, and integrity of the RPAS in the Drone ecosystem of the country. 
+The basis of this document lies in the chapter seven of the RPAS guidance manual available at the digital sky website. Chapters in this document are scenario-specific. The protocols followed in each scenario are elucidated with their basis upon the chain of trust implemented using PKI infrastructure.\\
+The  keys used in the architecture are as follows:\\
+1)Flight Module Provider(FMP) Key-pair\\
+2)Registered Flight Module (RFM) Key-pair\\
+3)Key pair used in Management Client(MC)\\
+4)Key used inside RFM for encryption and decryption( this will be reffered as Key D)\\
+\\
+The algorithms used for hashing and signing files for information exchange are:\\
+1)SHA256 for creating a 256-bit long hash of the information\\
+2)RSA (2048)encryption for signing the hash with 2048-bit long modulus.\\
+\\
+ Different scenarios have used files as a means for information exchange. Manipulating its read, write, and execution access makes it secure for usage. Also, they become suitable for information change when signed, maintaining the non-repudiation, traceability, and integrity of its content. Explanation of each scenario is accompanied by the files playing a crucial role in implementation.\\
+\\
+The solution to NPNT present in this document is  Level 0 compliant. The RFM key pair is kept encrypted inside the RFM module and can only be decrypted inside the RFM by the key stored in the firmware code of RFM. Key generation is done inside the RFM module itself. The details of the same are in chapter 5.\\
+\\
+There is no companion computer used in this implementation therefore there is no need to worry about the concerns related to inter-modular security.\\
+\\
+The functionality of hardware in the loop is disabled by changing the appropriate parameters inside the firmware code. Even if the user tries to operate the RFM in HITL mode using Qgroundcontrol, he/she won't succeed in it as the parameter is locked from inside of the drone.
+Some flight parameters can be modified by the user on sending a request to the Management Server. The authentic way in which it is carried out is mentioned in chapter 6.\\
+\\
+If any hardware accessories get damage while operating RPAS or the user wants to change particular hardware in the RPAS, an authentic way of carrying out the hardware change process is mentioned in chapter 7.\\
+\\
+As the first scenario that will be faced by the RPAS in its lifetime would be its registration, the second chapter(next chapter) of this document discusses the same in detail. 
+On each power-on cycle, RFM makes some pre-arm checks before it gets ready to take off. These pre-arm checks and the sequence in which they are performed are mentioned in chapter 3. This chapter is referred in all other chapters to get a more clear idea of the region in which the processing is carried out.\\
+\\
+Chapter 4 and Chapter 8 discuss the NPNT policy and the logic for managing flight logs. 
+At last, Chapter 8 details the procedure of firmware update.
+
+\newpage
+\section{Registration Scenario}
+Please first read the chart on the next page for better intuition of the upcoming text. The following text is like a supplement to the chart. Chart itself is enough to know the "Know how" process.\\
+\\
+During the manufacturing phase, the drone ID of the RPAS is calculated using the device IDs of its hardware accessories (inside the company's lab) and is coded inside the firmware. 
+This Drone ID will be unique to each drone and will remain unchanged throughout the lifetime of the RPAS. A file named DroneID.txt(inside RFM), signed using RFM private key, contains this DroneID.\\
+\\
+Along with the DroneID, the DroneID.txt  file has RFM public key, HardwareID, Firmware version, RPAS category, UUID number, and some other relevant information.  This file is fetched by Management Client(MC) and is later sent to the Management Server. By this, identification of the particular RPAS is done at the Management server side.\\
+\\
+Before the registration, the RFM  is coded with the private-public key pair during the manufacturing phase. The public key of this key pair is available with the Flight module provider and is used by it to validate the DroneID.txt file when sent for the first time.\\
+\\
+In Figure 2 of this document, one can see the logic running inside the RFM for checking if the Drone is registered or not. If the drone is not registered, then it will not get armed and a warning message will flash up on the QGC saying "Connect to MC for registration".\\ 
+ \\
+ UUID is generated at the time of registration at the MS side. UUID.txt file contains the DroneID and UUID of a particular RPAS. This file is signed with the Flight module provider's(FMP) private key and is later verified inside the RFM with the FMP's public key(which is coded inside the firmware during the manufacturing phase). Thus how the integrity of the file is maintained. Once the registration is complete, the UUID.txt file will remain in the MC. So that even if there is no internet, which is the case while operating RPAS in remote areas, the drone can confirm its registration by validating the UUID.txt file. The same is represented in detail in the flow chart in Figure2. \\
+ \\
+A unique product key is given to the buyer, along with the RPAS. When the Registration process is triggered, from the management server and registration UI is opened at the MC end, the buyer type in this product key with other credentials. This way, out of the band authentication of the product is done.
+Once the product key and signature of DroneID.txt is verified using the public key of the RFM(corresponding to the DroneID in DroneID.txt), UUID is generated inside the Management Server(MS).\\
+\\
+In later steps, as shown in Figure 1, MS sends the drone's DroneID, generated UUID, and signed public key(signed with FMP private key ) to the Digital sky for registration. Once the registration is done, UUID.txt and authenticated RFM public key are sent back to MC, and consequently to RFM. KeyChangePerm.txt file contains the authenticated RFM public key signed with FMP private key.
+More details of KeyChangePerm.txt and its usage will be in chapter 5 (related to key rotation).\\
+\\
+Files in Play:\\
+1)UUID.txt 
+2)DroneID.txt 
+3)KeyChangePerm.txt\\
+\\
+ Keys in Play:\\
+1)FMP Key pair 
+2)RFM key pair 
+3)Product key
+
+%figure for Register
+\begin{figure}
+ 	\tikzstyle{decision} = [diamond, draw, fill=red!20, 
+ 	text width=5.5em, text badly centered, inner sep=0pt]
+ 	\tikzstyle{block} = [rectangle, draw, fill=blue!20, 
+ 	text width=17em, text centered, rounded corners, minimum height=2em]
+ 	\tikzstyle{line} = [draw, -latex']
+ 	\tikzstyle{cloud} = [draw, ellipse,fill=red!20,
+ 	minimum height=4em]
+ 	\tikzstyle{decisionn} = [diamond, draw, fill=red!20, 
+ 	text width=4em, text badly centered, node distance=4cm, inner sep=0pt]
+ 	\tikzstyle{blockk} = [rectangle, draw, fill=blue!20, 
+ 	text width=10em, text centered, rounded corners, minimum height=2em]
+ 	\tikzstyle{blockkk} = [rectangle, draw, fill=red!20, 
+ 	text width=12em, text centered, rounded corners, minimum height=2em]
+ 	\tikzstyle{blockkk1} = [rectangle, draw, fill=red!20, 
+ 	text width=8em, text centered, rounded corners, minimum height=4em]
+ 	
+ 	\begin{tikzpicture}[node distance = 2cm, auto]\label{ams1}
+ 	% Place nodes
+ 	\node [blockk] (1) {1)Power on the drone \\2)Open QGC, check for telemetry\\3) then open management client};
+  	\node [blockk, below  =1cm  of 1] (2) {Inside Management Client(MC)\\ 1)Fetch DroneID.txt file from RFM};
+ 	\node [blockk, below of=2] (3) {1)DroneID.txt fetched\\2)Check for UUID.txt file inside MC };
+ 	\node [blockk, below =1.5cm  of 3] (4) {If UUID.txt is not present,Send DroneID.txt to Management Server(MS)};
+ %	\node [blockk, below of= 4] (5) {Establish connection with Server};
+ %	\node [blockk, below =1cm of 5] (checks) {1)Check for registration\\2)check for key rotation\\3)Check for Firmware upgrade\\4)Check for KeyChangePermission.txt};
+ 	
+ 	\node [blockk,  right=1.5cm  of 4] (6) { If UUID.txt is present, send it to RFM.\\This indicates that Drone is already registered};
+ 	
+ 	\node [blockkk, below =1cm of 4] (8) {Inside Management Server(MS):\\1)Receives DroneID.txt and Checks if mapping exists with any UUID };
+ 	\node [blockkk1, below = 1cm of 8] (9) {If no mapping exists, Drone is not registered.\\Send message to MC to begin registraion};
+ 	\node [blockkk1, right =1cm of 9] (10) {If mapping exists, Drone is already registered.\\Send Signed UUID.txt file to MC};
+ 	\node [blockk, below = 1cm of 9 ] (11) {Registration UI is opened at MC side\\Credentials are typed by the user\\1)One time activation Product Key\\2)Name and other information\\At the backend:\\1)DroneID.txt\\Once completed , MC send this to MS};
+ 	\node [blockkk1, right =1cm of 11] (12) {Inside Management Server(MS):\\1)Check the received Key and credentials\\2) Check the signature inside DroneID.txt};
+ 	
+ 	\node [blockkk1, right =2cm of 12] (13) {If either key or signature are not valid, then the user is not an authentic Omni's Drone buyer };
+ 	
+ 	\node [blockkk1, right =1cm of 10] (14) {If key and signature are valid,then:\\1)Generate UUID\\2)Sign the RFM public key with the company's private key };
+ 	\node [blockkk,above right=1cm and 0.2cm of 14] (15) {Register the Drone with Digital sky API };
+ 	\node [blockkk, above =2cm of 15] (16) {Once registration is done, Send:\\1) UUID.txt to MC\\2)KeyChangePerm.txt to MC };
+ 	\node [blockk, above =2cm of 16] (17) {Inside MC:\\ Send the received files to RFM:\\1)UUID.txt \\2)KeyChangePerm.txt};
+ 	\path [line] (1) -- (2);
+ 	\path [line] (2) -- (3);
+ 	\path [line] (3) -- node{Absent}(4);
+ 	\path [line] (3.east) -- node {Present} (6.north);
+ 	\path [line] (4) -- (8);
+ 	\path [line] (8) -- node {Absent}(9);
+ 	\path [line] (8.east) --node {Present} (10.north);
+ 	\path [line] (9) -- (11);
+ 	\path [line] (11) -- (12);
+ 	\path [line] (12.north) -- node [near start]{Valid}(14.west);
+ 	\path [line] (12)-- node {Not Valid} (13);
+ 	\path [line] (14)-|(15) ;
+ 	\path [line] (15) -- (16);
+ 	\path [line] (16) -- (17);
+ 	
+ 	
+ 
+ 	%%\node [coordinate, left =1cm and 0.5cm of intt] (leftt) {};       %% Coordin
+ 
+ 	
+ 	\end{tikzpicture}
+ 	\caption{Registration Scenario}
+ \end{figure}
+
+\newpage
+\section{Inside RFM processes}
+The chart in Figure 2 shows the Pre-arm checks before the drone gets ready to fly.  \\
+\\
+The Checks are in the  following order:\\
+\\
+1)RPAS identifier: This is to make sure if the hardware attached to the RPAS is authentic or not. A function, at every power-on cycle, calculates a Hardware number using the device IDs of the attached electronic hardware. The logic of doing so is kept private to the company's knowledge. A valid Hardware number is present in the HardwareInUse.txt file.  This file is encrypted inside the RFM using a key (key D). If the value of the Hardware number calculated at each power-on cycle matches the valid one, then the RPAS is authentic. More information on these files is in chapter 7(Secure hardware change).\\
+\\
+2)Registration: Check for the UUID.txt file is done at each power-on cycle to ensure that the drone is registered or not. (chart in Figure 1 discusses more of this)\\
+\\
+3)Check of recentPA.txt: The function of this file is to manage flight logs. Some scenarios where this file comes into use are:\\
+
+3.1) When a crash takes place,  the log file remains unfinished and unsigned: this text file helps in completing the log file, sign it and store it.\\
+
+3.2)When the validity of the recently used permission artifact(PA) has ended: this file helps in bundling and signing the group of log files corresponding to the recently used PA.
+(chart in Figure 7 discusses more on this)\\
+\\
+4)Check for Key rotation: Key rotation is triggered by the management server(MS). The main file to be checked is KeyRotation.txt which if validated with FMP public key, initiates the process of key generation. (chart in Figure 4 discusses more on this)\\
+\\
+5)Check for Change in  Parameter: This check is done using the ChangePerm.txt file (signed using FMP private key). This is done to check if there are some parameters whose values are needed to be changed or not. (chart in Figure 5 discusses more on this)\\
+\\
+6)Check for Permission Artefact(PA): Check for PA is done to know if the time and place conditions as specified by the Digital sky are met or not. PA is an XML file(.xml extension). (chart in Figure 3 discusses more on this)\\
+\\
+7)At last, sensor readiness checks are performed to ensure a safe flight.\\
+\\
+Files in play:\\
+\\
+(1)HardwareChange.txt  \hspace{1cm} 2)UUID.txt  \hspace{1cm}  3)PA.xml  \hspace{1cm}  4)KeyRotation.txt \hspace{1cm}   5)ParamChangePerm.txt  \hspace{1cm}   6)ParamInUse.txt  \hspace{1cm}  7)KeyChangePerm.txt\hspace{1cm}  8)DroneID.txt\\
+%figure for RFM processes
+\begin{figure}
+ 	\tikzstyle{decision} = [diamond, draw, fill=red!20, 
+ 	text width=5.5em, inner sep=0pt]
+ 	\tikzstyle{block} = [rectangle, draw, fill=blue!20, 
+ 	text width=17em, rounded corners, minimum height=2em]
+ 	\tikzstyle{line} = [draw, -latex']
+ 	\tikzstyle{cloud} = [draw, ellipse,fill=red!20,
+ 	minimum height=4em]
+ 	\tikzstyle{decisionn} = [diamond, draw, fill=red!20, 
+ 	text width=4em,  node distance=4cm, inner sep=0pt]
+ 	\tikzstyle{blockk} = [rectangle, draw, fill=blue!20, 
+ 	text width=8em,  rounded corners, minimum height=2em]
+ 	\tikzstyle{blockkk} = [rectangle, draw, fill=red!20, 
+ 	text width=12em, rounded corners, minimum height=2em]
+ 	\tikzstyle{blockkk1} = [rectangle, draw, fill=red!20, 
+ 	text width=8em, rounded corners, minimum height=4em]
+ 	
+ 	\begin{tikzpicture}[node distance = 2cm, auto]\label{ams1}
+ 	% Place nodes
+ 	\node [blockk] (1) {Power on the drone};
+ 	
+ 	\node [decisionn, below =0.5cm of 1  ] (2) {\\RPAS identifier};
+ 	
+ 	\node [blockk, below =1.0cm of 2] (3) {DroneID.txt file generation};
+ 	
+ 	\node [blockk, right =2.5cm of 2] (4) {Hardware acessories have been tampered\\1)Check for HardwareChange.txt file.};
+ 	
+ 	\node [blockk, right =1.6cm of 4] (aux) {If not present, Drone will not get armed};
+ 	
+ 	\node [blockk, below right=0 and 1cm of 4] (aux1) {If present, further processes takes place according to chart given in Figure 6.};
+ 	
+ 	\node [blockk, below =0.5cm of 3](5){Check if Drone has been registered or not\\Check for UUID.txt .};
+ 	
+ 	\node [blockk, below =1.4cm of 5](6){Check for the validity of the UUID.txt file.};
+ 	
+ 	\node [blockk, right =2.8cm of 5](7){Drone is not registered\\Wait to receive UUID.txt file from MC.};
+ 	
+   \node [blockk, right =2cm of 6](9){Not valid UUID.txt file.\\Drone will not get armed};
+ 	
+ 	\node [blockk, below =2cm of 6](19){Check for recentPA.txt file};
+ 	\node [blockk, right =2cm of 19](20){If present, proceed as per the chart in Figure 7.};
+ 	
+ 	 \node [blockk, below =1cm of 19](8){Check if key rotation is required or not.\\Check for KeyRotation.txt file};
+ 	 
+ 	 \node [blockk, below =1cm of 8](10){If key rotation is required, then follow the procedures for key rotation:chart given in Figure 4 };
+ 	 
+ 	 \node [blockk, right =1.5cm of 8](11){If key rotation is not required, then check for KeyChangePerm.txt file. };
+ 	 
+ 	 \node [blockk, right =1.4cm of 11](12){If present, validate it and then make suitable key changes};
+ 	 
+ 	 \node [blockk, right =11.5cm  of 10](13){Check for ParamChangePerm.txt file};
+ 	 
+ 	 \node [blockk, above =2.5cm  of 13](14){If present, validate it and update suitable parameters in ParamInUse.txt};
+ 	 
+ 	  \node [blockk, above  =4cm  of 14](15){Check for PA and perform its validation as shown in the chart given in Figure 3};
+ 	  
+ 	  \node [blockk, above  =1cm  of 15](16){Check for Sensors readiness};
+ 	 
+ 	 \node [blockk, above  =1cm  of 16](17){Drone ready to take off};
+ 	 \node [blockk, below left  =1.5cm and 1cm  of 15](18){Update parameters according to ParamInUse.txt};
+ 	% \node [coordinate, left =.3cm  of 14] (point1) {};  
+ 	 \node [coordinate, left =2.5cm  of 15] (point2) {}; 
+ 	 %\node [coordinate, above left =2cm and 0.3  of 13] (point3) {}; 
+ 	 
+ 	 \path [line] (1) -- (2);
+ 	 \path [line] (2)-- node  {Genuine}(3);
+ 	 \path [line] (2) -- node  {Not Genuine} (4);
+ 	 \path [line] (3)--(5);
+ 	 \path [line] (5) -- node  {Registered}(6);
+ 	 \path [line] (5) --node {Not Registered} (7);
+%\path [line] (6) -- node  {Valid}(8);
+\path [line](6)--(19);
+\path [line](19)--node  {Present}(20);
+\path [line](19)--node  {Absent}(8);
+\path [line](20.south west)--(8.north east);
+
+ 	 \path [line] (6) --node {Not Valid} (9);
+ 	 \path [line] (8) --node {Present} (10);
+ 	 \path [line] (8) --node {Absent}(11); 	 
+ 	 \path [line] (10) -- (13);
+ 	 \path [line] (11)-- node{Present}(12);
+ 	 \path [line] (12) |- (13);
+ 	 \path [line] (11) |- node[near start]{Absent}(13);
+ 	 \path [line] (13) -- node[right]{Present}(14);
+ 	 \path [line] (14) |- (18.east);
+ 	 \path [line] (15) -- (16);
+ 	 \path [line] (16) -- (17);
+ 	  \path [line] (4) --node{Absent} (aux);
+ 	  \path [line] (4) |-node[below]{Present} (aux1);
+ 	 \path [line] (13.north west)--node [near start]{Absent}(18);
+ 	% \path [line] (point3)--(point1);
+ 	  \path [line] (18)-- (point2);
+ 	 \path [line] (point2)--(15.west);
+ 	 
+ 	 
+ 	 
+ 	 
+ 	
+ 	
+  
+ 	
+ 	
+ 
+ 	%%\node [coordinate, left =1cm and 0.5cm of intt] (leftt) {};       %% Coordin
+ 
+ 	
+ 	\end{tikzpicture}
+ 	\caption{Inside RFM flow chart }
+ \end{figure}
+
+\newpage
+\section{NPNT Policy}
+The chart in Figure 3 represents the flow of the implementation of the NPNT policy. The chart covers up all the majour details in the process. Some of the important points are as follows:\\
+\\
+User makes requests to Digital sky for permission artifact through the Management Client(MC) UI.\\
+\\
+Inside RFM, PA is verified with the Digital Sky Public Key. Digital Sky Public Key is coded inside the firmware and can't be accessed. If the Digital Sky Public key is changed,  a firmware update for the RPAS is released with the new Digital Sky Public Key coded inside.\\
+\\
+The process of the Firmware update is given in chapter 9. RPAS is programmed such that if a valid PA is not found inside the RPAS, it will not get armed. The reason for which a PA is invalid is also shown on the QGC.
+Permission to perform further sensor checks is given only when there is no breach of time and position.\\
+\\
+During the flight, continuous checking for knowing the breaches(time or position) is done at a rate of 1 Hz. Upon encountering a breach, the RPAS logs that event along with its timestamp to the log file. The log file is signed at the end of the flight using the RFM private key. The more detailed log management is discussed in chapter 8.\\
+\\
+RPAS turns on its RTL(return to launch) mode upon sensing a breach. \\
+\\
+For validating the PA.xml file inside the RFM, xml file was first converted into its canonical form. Later, the hash of the canonical form was calculated using SHA256 and compared to the one decrypted using the RSA public key.\\
+\\
+Files in play:\\
+\\
+1)recentPA.txt \hspace{1cm} 2)PA.xml\\
+\\
+Keys in play:\\
+\\
+1)Digital Sky public key: for verifying the PA.\\
+\\
+2)RFM private key: for signing the log file at the end of the flight and while bundling group of such log files when the validity of the PA gets over.
+\begin{figure}
+ 	\tikzstyle{decision} = [diamond, draw, fill=red!20, 
+ 	text width=5.5em, text badly centered, inner sep=0pt]
+ 	\tikzstyle{block} = [rectangle, draw, fill=blue!20, 
+ 	text width=17em, rounded corners, minimum height=2em]
+ 	\tikzstyle{line} = [draw, -latex']
+ 	\tikzstyle{cloud} = [draw, ellipse,fill=red!20,
+ 	minimum height=4em]
+ 	\tikzstyle{decisionn} = [diamond, draw, fill=red!20, 
+ 	text width=4em, text badly centered, node distance=4cm, inner sep=0pt]
+ 	\tikzstyle{blockk} = [rectangle, draw, fill=blue!20, 
+ 	text width=10em, rounded corners, minimum height=2em]
+ 	\tikzstyle{blockkk} = [rectangle, draw, fill=purple!20, 
+ 	text width=10em, rounded corners, minimum height=2em]
+ 	\tikzstyle{blockkk1} = [rectangle, draw, fill=red!20, 
+ 	text width=8em, rounded corners, minimum height=4em]
+ 	
+ 	\begin{tikzpicture}[node distance = 2cm, auto]\label{ams1}
+ 	% Place nodes
+ 	\node [blockk] (1) {1)Power on the drone \\2)Open QGC, check for telemetry\\3) then open management client};
+ 	\node [blockk,below =1cm of 1] (2) {1)Receive Permission Artefact(PA) from digital sky using MC};
+ 	\node [blockk,below =1.5cm of 2] (3) {Send Permission Artefact to RFM};
+ 	\node [blockk, below =1cm of 3] (4) {Inside RFM\\Check for PA};
+ 	\node [blockk, right =1.5cm of 4] (5) {Message displayed on QGC to send PA};
+ 	\node [blockk, below =1cm of 4] (6) {Is PA valid or not};
+ 	\node [blockk, right =1.7cm of 6] (7) {Message displayed on QGC to send a valid PA};
+ 	\node [blockk, below =1cm of 6] (8) {Extract time and Geo coordinates, store these in recentPA.txt(rewrite or create one) and delete the Permission Artefact from the RFM.};
+ 	\node [blockk, below =1cm of 8] (9) {Compare the stored date-time and geo coordinates in recentPA.txt to current date-time and GPS location};
+ 	\node [blockk, above right=0cm and 1.5cm of 9] (10) { Breach Message is showed on the QGC according to the type of breach };
+ 	\node [blockk, below=1cm of 10] (11) {Check for Sensor readiness};
+ 	\node [blockk,right=2.0cm of 11] (12) {Message displayed on QGC specifying the sensor which is not ready};
+ 	\node [blockk,  above right=1cm and 1.9cm of 11] (13) {Drone ready to Take Off};
+ 	
+ 	\node [blockk,  below right=0 and .2cm   of 7] (14) {Drone is in air:\\While in air keep checking for the Time breach and Geo breach at the rate of 1Hz};
+ 	\node [blockkk,  above =1.5cm  of 5] (15) {If Landing is detected};
+ 	\node [blockkk,  above right =.5cm of 15] (16) {If Geo-Breach};
+ 	\node [blockkk,  above right =.5cm and 0.1  of 16] (17) {If Time-Breach};
+ 	
+ 	\node [blockk,  above right =1cm and 3cm of 7] (18) {If neither of the Landing, time-breach and geo-breach occurs};
+ 	
+ 	\node [blockkk1,  above  =1.5cm  of 16] (19) {Turn on RTL mode};
+ 	
+ 	\node [blockkk1,  above  =3cm  of 15] (20) {Notedown the timestamp in log};
+ 	
+ 	\node [blockkk1,  above right  = 0 and 4.4  of 10] (21) {Notedown the Take Off timestamp in log};
+     \node [coordinate, above left =0.4cm and .9cm  of 18] (point2) {}; 
+ 	 
+ 	 
+ 	\path [line] (1) -- (2);
+ 	\path [line] (2) -- (3);
+ 	\path [line] (3) -- (4);
+ 	\path [line] (4) --node{Absent} (5);
+ 	\path [line] (4) -- node {Present} (6);
+ 	\path [line] (6) -- node {Not Valid}(7);
+ 	\path [line] (6) -- node {Valid}(8);
+ 	\path [line] (8) --  (9);
+ 	\path [line] (9) -- node[near end]{Invalid}(10);
+ 	\path [line] (9) -- node{Valid}(11);
+ 	\path [line] (11) -- node{Not ready}(12);
+ 	\path [line] (11) -- node[near end]{Ready} (13.west);
+ 	\path [line] (13.north) -- (14);
+ 	\path [line] (13.east) -| (21);
+  	\path [line] (14) |- (18.west);
+  	\path [line] (18.south) |- (14.east);
+  	\path [line] (point2) -- (16);
+  	\path [line] (point2) -| (15);
+  	\path [line] (point2) -| (17);
+  	\path [line] (14)--(point2);
+  	\path [line] (15) -- (20);
+  	\path [line] (16) -- (19);
+  	\path [line] (17) |- (19);
+  	\path [line] (16) -| (20);
+  	\path [line] (17) -| (20);
+  	
+ 	
+ 
+ 	%%\node [coordinate, left =1cm and 0.5cm of intt] (leftt) {};       %% Coordin
+ 
+ 	
+ 	\end{tikzpicture}
+ 	\caption{Flight Flow chart}
+ \end{figure}
+
+\newpage
+\section{Key Rotation}
+Key rotation can only be triggered by Management Server. A KeyRotation.txt file is signed with Flight Module Provider's Private key and sent to Management Client(MC). From Management Client, this file is sent to RFM. All other activities like fetching of logs and permission artifacts are stopped until the newly formed Public Key is received at the MC end.\\
+\\
+Inside RFM, a check for the presence and validity of the KeyRotation.txt file is performed as shown in the chart in Figure 2.\\
+\\
+Accordingly, the process of key generation is initiated. The files playing crucial role in iformation exchange in this process are as follows:\\
+\\
+1)KeyRotation.txt: Signed using FMP's private key for telling RFM to initiate the process of key generation.\\
+\\
+2)PublicKeyNew.txt: Signed using RFM's private key(the one present in  PublicPrivateInuse.txt), this is the file fetched by Management Client(MC) and later sent to Management Server(MS).\\
+\\
+3)PublicPrivateNew.txt: This is the file inside the RFM, where newly generated keys are kept in a buffer state. This file is encrypted using a secure key(Key D) which is stored in the RFM code.\\
+\\
+4)KeyChangePerm.txt: This is the file that initiates the process of copying the contents of PublicPrivateNew.txt to PublicPrivateInUse.txt. This file is signed using FMP's private key.\\
+\\
+5)PublicPrivateInuse.txt: This is the file that contains the RFM public-private keys in an encrypted format. It can only be decrypted using a secured Key(Key D). For signing logs, the private key in this file is first decoded and then used.\\
+\\
+Keys in Play:\\
+\\
+1)FMP private-public key\\
+\\
+2)RFM private-public key(old and new)\\
+\\
+3)Key D used inside RFM for encryption and decryption.
+\\
+\begin{figure}
+ 	\tikzstyle{decision} = [diamond, draw, fill=red!20, 
+ 	text width=5.5em, inner sep=0pt]
+ 	\tikzstyle{block} = [rectangle, draw, fill=blue!20, 
+ 	text width=17em, rounded corners, minimum height=2em]
+ 	\tikzstyle{line} = [draw, -latex']
+ 	\tikzstyle{cloud} = [draw, ellipse,fill=red!20,
+ 	minimum height=4em]
+ 	\tikzstyle{decisionn} = [diamond, draw, fill=red!20, 
+ 	text width=4em,  node distance=4cm, inner sep=0pt]
+ 	\tikzstyle{blockk} = [rectangle, draw, fill=blue!20, 
+ 	text width=14em,  rounded corners, minimum height=2em]
+ 	\tikzstyle{blockk1} = [rectangle, draw, fill=red!20, 
+ 	text width=14em, rounded corners, minimum height=2em]
+ 	\tikzstyle{blockk2} = [rectangle, draw, fill=pink!20, 
+ 	text width=14em, rounded corners, minimum height=4em]
+ 	
+ 	\begin{tikzpicture}[node distance = 2cm, auto]\label{ams1}
+ 	% Place nodes
+ 	\node [blockk] (1) {Inside Management Server(MS):\\Key Rotation is Triggered by sending KeyRotation.txt file(signed using Flight module provider's private key) to Management Client(MC)};
+ 	
+ 	\node [blockk1, below =1cm of 1  ] (2) {Inside MC:\\1)Receives KeyRotation.txt from MS and sends it to RFM\\2)Doesnt allow any other process to run untill receives the new public key from the RFM.};
+ 	
+ 	\node [blockk2, below =1cm of 2  ] (3) {Inside RFM:\\Receives KeyRotation.txt from MC and validates the signature inside it using the Flight Module Provider's public key};
+ 	
+ 	\node [blockk2, below =1cm of 3  ] (4) {If valid, then key generation is initiated};
+ 	
+ 	\node [blockk2, right =1cm of 3  ] (5) {If not valid, then key generation is not performed and further process is carried in accordance to chart given in Figure 2 . };
+ 	
+ 	\node [blockk2, below =1cm of 4 ] (6) {If valid, then key generation is initiated and KeyRotation.txt file is deleted};
+ 	
+ 	\node [blockk2, below =1cm of 6 ] (7) {Two files are created at the end of key generation \\1)PublicKeyNew.txt:This file is signed using RFM Private key(in use).\\2)PublicPrivateNew.txt: This file is encrypted using a Key and can only be decrypted inside RFM};
+ 	
+ 	\node [blockk1, below right = 3.5 and 0.5cm of 6 ] (8) {1)MC fetches PublicKeyNew.txt from RFM and sends it to MS\\};
+ 	\node [blockk, above =2cm of 8 ] (9) {At MS, the PublicKeyNew.txt is validated by using the RFM public key. Once validated, the new public key in the file is signed using Flight module provider's(FMP) Private key.};
+ 	\node [blockk,above right =0 and 0.5cm of 8 ] (10) {New Public Key, signed using FMP private key, is send to Digital sky for updation};
+ 	
+ 	\node [blockk, above =2.5cm of 10 ] (11) {A KeyChangePerm.txt file(containing new public key and permission status),signed using FMP private key, is send from MS to MC};
+ 	
+ 	\node [blockk1, above =1cm of 11 ] (12) {MC sends KeyChangePerm.txt file to RFM};
+ 	
+ 	\node [blockk2, above =2.5cm of 12 ] (13) {Inside RFM, KeyChangePerm.txt file is validated using FMP public key, if valid then the contents of the file PublicPrivateNew.txt are copied to PublicPrivateInuse.txt };
+ 	
+ 	\node [blockk2, above =1.4cm of 13 ] (14) {1)KeyChangePerm.txt, PublicKeyNew.txt  and \\PublicPrivateNew.txt files are deleted\\2) DroneID.txt is updated with new public key.};
+ 	
+ 	\path [line] (1) -- (2);
+ 	\path [line] (2) -- (3);
+ 	\path [line] (3) -- node[above]{not} node[below]{valid}(5);
+ 	\path [line] (3) --  node{valid} (4);
+ 	
+ 	\path [line] (4) -- (6);
+ 	\path [line] (6) -- (7);
+ 	\path [line] (7) -- (8);
+ 	\path [line] (8) -- (9);
+ 	\path [line] (9) -- (10);
+ 	\path [line] (10) -- (11);
+ 	\path [line] (11)--  (12);
+ 	\path [line] (12)--(13) ;
+ 	\path [line] (13)--(14);
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	 
+ 	 
+ 	 
+ 	 
+ 	
+ 	
+  
+ 	
+ 	
+ 
+ 	%%\node [coordinate, left =1cm and 0.5cm of intt] (leftt) {};       %% Coordin
+ 
+ 	
+ 	\end{tikzpicture}
+ 	\caption{Key Rotation and Key Management}
+ \end{figure}
+
+\newpage
+\section{Secure Flight Parameters Change}
+There are some crucial parameters, changing access for which is not provided to the user. These parameters are locked inside the firmware. Some examples of such parameters are:\\
+\\
+1)BAT\_CRIT\_THR\\
+\\
+2)BAT\_EMERGENCY\_THR\\
+\\
+3)BAT\_LOW\_THR\\
+\\
+4)COM\_LOW\_BAT\_ACT\\
+\\
+5)COM\_HOME\_IN\_HR\\
+\\
+6)GF\_ACTION\\
+\\
+7)LNDFW\_AIRSDD\_MAX\\
+\\
+There might be some situations where the user wants the parameters to be changed according to his need. An authentic and secure channel for doing the same is provided in the chart in Figure 5.\\
+\\
+The setting up of the flight parameters takes place before the arming of the drone, as shown in the chart in Figure 2. The information exchange in the chart in Figure 5 is carried out using the following files:\\
+\\
+1)ParamChangePerm.txt: File signed using Flight Module Provider's private key. It contains the list of the parameters and their values that are needed to be modified in the RFM code.\\
+\\
+2)ParamInuse.txt: This is the file kept inside the RFM from which RFM reads and set value at the start of each power-on cycle.\\
+\\
+Keys in Play:\\
+\\
+1)FMP private-public key: Used for signing the
+ParamChangePerm.txt file. The same is validated inside the RFM using the public key of FMP.\\
+\\
+The information change between MC and MS is using https.
+\begin{figure}
+ 	\tikzstyle{decision} = [diamond, draw, fill=red!20, 
+ 	text width=5.5em, text badly centered, inner sep=0pt]
+ 	\tikzstyle{block} = [rectangle, draw, fill=blue!20, 
+ 	text width=17em, rounded corners, minimum height=2em]
+ 	\tikzstyle{line} = [draw, -latex']
+ 	\tikzstyle{cloud} = [draw, ellipse,fill=red!20,
+ 	minimum height=4em]
+ 	\tikzstyle{decisionn} = [diamond, draw, fill=red!20, 
+ 	text width=4em, text badly centered, node distance=4cm, inner sep=0pt]
+ 	\tikzstyle{blockk} = [rectangle, draw, fill=blue!20, 
+ 	text width=14em, rounded corners, minimum height=2em]
+ 	\tikzstyle{blockk1} = [rectangle, draw, fill=red!20, 
+ 	text width=12em,  rounded corners, minimum height=2em]
+ 	\tikzstyle{blockk2} = [rectangle, draw, fill=pink!20, 
+ 	text width=14em,  rounded corners, minimum height=4em]
+ 	
+ 	\begin{tikzpicture}[node distance = 2cm, auto]\label{ams1}
+ 	% Place nodes
+ 	\node [blockk] (1) {From Management Client(MC):\\User sends the request for flight parameters change with the comprehensive list of the parameters with their desired value};
+ 	\node [blockk1,below =1cm of 1] (2) {Inside Management Server(MS):\\1)Scrutiny of parameters and their desired values is done on the basis of type of RPAS.\\2)A list of parameters with their corresponding range of values in which they could be modified is send back to MC. };
+ 	\node [blockk,below =1cm of 2] (3) {Inside MC:\\1)User checks the list of parameters sent by MS and make the changes to his/her list accordingly.\\2)This rectified list is then send back to MS. };
+ 	
+ 	\node [blockk1,below =1cm of 3] (4) {Inside MS:\\Check if the values of the parameters are within the specified range or not.  };
+ 	
+ 	\node [blockk1,right =2.5cm of 4] (5) {If not in range, send back the message to MC to set the parameters in range.  };
+ 	
+ 	\node [blockk1,below =1cm of 4] (6) {1)If values are in the specified range then generate a file ParamChangePerm.txt containing the parameters and their values.\\2)Sign this file using Flight module Provider's(FMP) private key and send it to MC.};
+ 	
+ 	\node [blockk,below =1cm of 6] (7) {MC sends the received file to RFM.};
+\node [blockk2,right =1cm of 7] (8){Inside RFM:\\ Validation of ParamChangePerm.txt file is performed};
+
+\node [blockk2,right =1cm of 8] (9){If Valid, Parameters and their values are copied to ParamsInuse.txt and ParamChangePerm.txt file is deleted.};
+
+\node [blockk2,above =1cm of 8] (10){If not Valid, Parameters are not changed.};
+
+\node [blockk2,above =1cm of 9] (11){Parameters are set as per to the ParamsInuse.txt file};
+
+\node [blockk2,above =1cm of 11] (12){Further processes run as per the chart in Figure 2};
+\path [line] (1) -- (2);
+ 	 \path [line] (2)-- (3);
+ 	 \path [line] (3) --  (4);
+ 	 \path [line] (4)--node {Not In Range} (5);
+ 	 \path [line] (4) -- node  {In Range}(6);
+ 	 \path [line] (6) -- (7);
+ 	 \path [line] (7) -- (8);
+ 	 \path [line] (8) -- node  {Valid}(9);
+ 	 \path [line] (8) --node {Not Valid} (10);
+ 	 \path [line] (9) --(11);
+ 	 \path [line] (11) --(12); 	 
+ 	 
+ 	
+ 	
+
+ 	
+ 	
+ 
+ 	%%\node [coordinate, left =1cm and 0.5cm of intt] (leftt) {};       %% Coordin
+ 
+ 	
+ 	\end{tikzpicture}
+ 	\caption{Authentic Parameter Change}
+ \end{figure}
+
+\newpage
+\section{Secure Hardware Change}
+All the electronic hardware components are verified at each power-on cycle. This is done with the help of each device's unique Device ID and the true Hardware number.
+This is how Hardware tamper-avoidance is implemented in the RPAS.
+Hardware number and DroneID are two different parameters. Hardware number is changed as per the replacement of the existing hardware, but DroneID is constant throughout the lifetime of the RPAS.\\
+\\
+ The chart given in Figure 6 shows the detailed process for the replacement of the damaged hardware. In this way, it is easy to keep track of the changes brought in hardware in the lifetime of the RPAS.\\
+\\Files in Play:\\
+\\
+1)HardwareChange.txt: This is the file sent by the Management Server through HTTPS to Management Client. It is signed by the company's private key. It consists of the Device ID of the new hardware.\\
+\\
+2) HardwareInUse.txt: This file is inside RFM and contains device IDs of all the hardware components attached to the RPAS and the True hardware number of the RPAS. This file is used for comparing the Hardware number generated at each power-on cycle. It is encrypted inside the RFM and can only be read/updated inside the drone.\\
+\\
+3)SystemLog.txt: This file contains the log of the periodic changes occurring in the RFM, like hardware change, key change, parameters change. When the user tries to attach an unauthentic hardware component to the RPAS, then also the event is registered in this file.\\
+\\
+Keys in play:\\
+\\
+1)FMP private-public key\\
+\\
+2)RFM encrypting/decrypting key(Key D)\\
+\\3)RFM private-public key\\
+\begin{figure}
+ 	\tikzstyle{decision} = [diamond, draw, fill=red!20, 
+ 	text width=5.5em, text badly centered, inner sep=0pt]
+ 	\tikzstyle{block} = [rectangle, draw, fill=blue!20, 
+ 	text width=17em, rounded corners, minimum height=2em]
+ 	\tikzstyle{line} = [draw, -latex']
+ 	\tikzstyle{cloud} = [draw, ellipse,fill=red!20,
+ 	minimum height=4em]
+ 	\tikzstyle{decisionn} = [diamond, draw, fill=red!20, 
+ 	text width=4em, text badly centered, node distance=4cm, inner sep=0pt]
+ 	\tikzstyle{blockk} = [rectangle, draw, fill=blue!20, 
+ 	text width=14em, rounded corners, minimum height=2em]
+ 	\tikzstyle{blockk1} = [rectangle, draw, fill=red!20, 
+ 	text width=14em,  rounded corners, minimum height=2em]
+ 	\tikzstyle{blockk2} = [rectangle, draw, fill=pink!20, 
+ 	text width=14em,  rounded corners, minimum height=4em]
+ 	
+ 	\begin{tikzpicture}[node distance = 2cm, auto]\label{ams1}
+ 	% Place nodes
+ 	\node [blockk] (1) {From Management Client(MC):\\User sends the request for Hardware change };
+ 	
+ 	\node [blockk1, below =0.6cm of 1] (2) {Inside Management Server(MS):\\MS sends back the confirmation and asks to pay the required amount of money to purchase the hardware component };
+ 	
+ 	\node [blockk, below =0.6cm of 2] (3) {Inside MC:\\User makes the desired amount of payment};
+ 	\node [blockk1, below =1cm of 3] (4) {Inside MS:\\After payment is received by the Flight Module Provider(FMP), a new piece of hardware is tested in the company's lab and its device ID is noted down.};
+ 	
+ 	\node [blockk1, below =1cm of 4] (5) {Inside MS:\\1)After the testing of the new hardware is complete, it is send to the RFM owner's address\\2)A HardwareChange.txt file with the new hardware's device id and other information(signed using FMP private key) is send to MC};
+ 	
+ 	\node [blockk, below =1cm of 5] (6) {Inside MC:\\1)The received HardwareChange.txt file is send to RFM.\\2)RFM user receives the new hardware and connects to the Drone};
+ 	
+ 	\node [blockk2, right=1cm of 6] (7) {Inside RFM:\\1)New hardware is recognized as an intruder by the RFM.\\2)RFM checks for the HardwareChange.txt file and validates it.};
+ 	
+ 	\node [blockk2, above right=1cm of 7] (8) {If valid, then the new hardware's device id compared to the one inside HardwareChange.txt file. If comes out to be same then the same is updated inside HardwareInUse.txt file and the instance is logged inside SystemLog.txt file as authentic device change with the timestamp};
+ 	
+ 	\node [blockk2, above=2cm of 7] (9) {If not valid, then an unauthorised attempt to change the hardware instance  is logged inside the SystemLog.txt file with the timestamp and Drone remains unarmed for the rest of the time.};
+ 	
+ 	\node [blockk2, above=3cm of 8] (10) {Further processes  inside RFM will carry on according to the chart in Figure 2};
+ 	
+ 	 
+ 	 \node [blockk2, above=1cm of 9] (12) {SystemLog.txt is signed using RFM's private key.};
+ 	
+ 	\node [blockk, above=1cm of 12] (11) {MC fetches the SystemLog.txt file and sends it to MS.};
+ 
+ 	  \path [line] (1) -- (2);
+ 	   \path [line] (2) -- (3);
+ 	    \path [line] (3) -- (4);
+ 	     \path [line] (4) -- (5);
+ 	      \path [line] (5) -- (6);
+ 	       \path [line] (6) -- (7);
+ 	        \path [line] (7) -- (9);
+ 	         \path [line] (7) -| (8);
+ 	          \path [line] (9) -- (12);
+ 	           \path [line] (8) |- (12);
+ 	            \path [line] (8) -- (10);
+ 	             \path [line] (12) -- (11);
+ 	
+ 	
+
+ 	
+ 	
+ 
+ 	%%\node [coordinate, left =1cm and 0.5cm of intt] (leftt) {};       %% Coordin
+ 
+ 	
+ 	\end{tikzpicture}
+ 	\caption{Authentic Hardware Change}
+ \end{figure}
+ 
+\newpage
+\section{Flight Log Management}
+The chart in Figure 7 discusses how log files are handled during and after the flight.\\
+\\
+Log files can be modified only inside the RFM. If an accident happens and the log remains unfinished and unsigned, logic is implemented in the RFM to finish and sign such type of log files in the next power-on cycle.
+After the valid period of PA ends, bundling of flight logs will automatically start. And the drone will remain unarmed until the MC fetches all the log files with their combined signature and sent back a confirmation file to the RFM, confirming the successful download of all the flight logs. Later all the flight logs are automatically sent to the Digital Sky from the MC when the internet connection is established.\\
+\\
+Files in play are:\\
+\\
+1)recentPA.txt: This is the file where the information of the recent permission artifact and flight log is stored. Its usage is very much evident in the charts given in Figure 3 and Figure 7.\\
+\\
+2)bundleSig.txt: This is the file used to store the calculated combined hash of all the log files. This hash is signed using the RFM private key. Thus, maintaining the integrity of the flight logs.\\
+\\
+3)fetched.txt: This file is signed using the private key of the Management client and sent to the RFM to indicate that the log files have been successfully downloaded. After this RFM can erase the flight logs from its memory.   \\
+\\
+Keys in play:\\
+\\
+1)RFM private-public key\\
+\\
+2)Management Client Private-Public key: Public key of MC is stored inside the RFM and is used to validate the fetched.txt. \\
+\\
+\begin{figure}
+ 	\tikzstyle{decision} = [diamond, draw, fill=red!20, 
+ 	text width=5.5em, text badly centered, inner sep=0pt]
+ 	\tikzstyle{block} = [rectangle, draw, fill=blue!20, 
+ 	text width=17em, rounded corners, minimum height=2em]
+ 	\tikzstyle{line} = [draw, -latex']
+ 	\tikzstyle{cloud} = [draw, ellipse,fill=red!20,
+ 	minimum height=4em]
+ 	\tikzstyle{decisionn} = [diamond, draw, fill=red!20, 
+ 	text width=4em, text badly centered, node distance=4cm, inner sep=0pt]
+ 	\tikzstyle{blockk} = [rectangle, draw, fill=blue!20, 
+ 	text width=14em, rounded corners, minimum height=2em]
+ 	\tikzstyle{blockk1} = [rectangle, draw, fill=red!20, 
+ 	text width=12em,  rounded corners, minimum height=2em]
+ 	\tikzstyle{blockk2} = [rectangle, draw, fill=pink!20, 
+ 	text width=14em,  rounded corners, minimum height=4em]
+ 	
+ 	\begin{tikzpicture}[node distance = 2cm, auto]\label{ams1}
+ 	% Place nodes
+ 	\node [blockk, below =1cm of 1] (1) {RPAS is powered ON\\Various Pre Arm checks are perfromed as per chart given in Figure 2};
+ 	\node [blockk, below =1cm of 1] (2) {Check for recentPA.txt file };
+ 	
+ 	\node [blockk, below =2.cm of 2] (2and3) { If present, check the "log status:end:" tag inside the file.};
+ 	\node [blockk, right =2cm of 2and3] (23right) { If its empty, then it suggests that latest log filed has not been signed yet and landing instance is missing in it. This may be due to crash.};
+ 	\node [blockk, below =1cm of 23right] (right) { Finish the unsigned log file by adding the instance for landing failure and sign it using RFM private key};
+ 	
+ 	\node [blockk, below =1.4cm of 2and3] (3) { If its not empty, check if the current time lies inside the interval mentioned in recentPA.txt file.};
+ 	
+ 	\node [blockk, right =2cm of 2] (4) {If absent, then proceed further as shown in the chart given in Figure 3. \\Basically this suggests that the next permission artefact would be a new one};
+ 	
+ 	\node [blockk, below =1cm of 3] (5) {If not in specified range, then bundling of existing log files is done and Drone will not get arm untill it gets fetched.txt file from the Management Client.};
+ 	
+ 	\node [blockk, below right =1.4 and 1.6cm of 3] (6) {If inside specified range then proceed further as shown in the chart given in Figure 3.\\This suggests that the upcoming PA had earlier been there in the drone };
+ 	
+ 	\node [blockk, below =1cm of 5] (7) {Hash of each log file is fetched and concatenated to calculate a single hash value. This is signed using RFM's private key and written inside bundleSig.txt and recentPA.txt is deleted.};
+ 	
+ 	\node [blockk, below=1cm of 7] (8) {Managemet Client(MC) will fetch the log files along with the bundleSig.txt file and will make a zip folder out of it and will send it to DSP\\On fetching the log files, a fetched.txt file would be send back to the RFM.};
+ 	
+ 	\node [blockk1,  right=9cm of 5] (9) {1)PA comes in and gets validated\\2)Drone gets armed and TakeOff detected};
+ 	
+ 	\node [blockk, below =1cm of 9] (10) {1)Logging starts at takeoff instance(new log file is created)\\2)"log status:start:" tag is filled with the takeoff timestamp\\ 3)Geobreach and time breach instances are logged in the log file with timestamp.};
+ 	
+ 	\node [blockk1, below left =1cm of 10] (11) {If landing detected, "log status:end:" tag is filled with the landing timestamp and log is signed using RFM private key and kept in the log storage\\ };
+ 	
+ 	\node [blockk1, right =1cm of 11] (12) {If landing is not detected, "log status:end:" tag remains empty and log file also remains unsigned.\\This may be due to crash. };
+ 	  \node [coordinate,  right =1cm  of 8] (point1) {}; 
+ 	  \node [coordinate,  above =5cm  of point1] (point2) {}; 
+ 	   \node [coordinate,  right =6.5cm  of point2] (point3) {}; 
+ 	  \node [coordinate,  above =3cm  of point3] (point4) {}; 
+ 	\path [line] (1) -- (2);
+ 	 \path [line] (2)-- node{Present}(2and3);
+ 	 \path [line] (2and3) -- node{Empty}(23right);
+ 	 \path [line] (23right)-- (right);
+ 	 \path [line] (2and3) -- node{Filled}(3);
+ 	 \path [line] (2) -- node{Absent}(4);
+ 	 \path [line] (3) --node{Outside limit} (5);
+ 	 \path [line] (3) -- node{In limit}(6);
+ 	 \path [line] (5) -- (7);
+ 	 \path [line] (7) --(8);
+ 	 \path [line] (right) --(3);
+ 	 \path [line] (4) -|(9);
+ 	 \path [line] (6) --(9.north west);
+ 	 \path [line] (8.east) -- (point1);
+	\path [line] (point1) --(point2);
+ 	\path [line] (point2) --(point3);
+ 	 \path [line] (point3) --(point4);
+ 	 \path [line] (point4) --(9.west);
+ 	 
+ 	 \path [line] (9) --(10);
+ 	 \path [line] (10) -|(11);
+ 	 \path [line] (10) --(12);
+ 	 
+ 	 
+ %	\node [blockk, below =1cm of 1] (7) {Inside RFM: };
+ 	
+ 	 
+ 	
+ 	
+
+ 	
+ 	
+ 
+ 	%%\node [coordinate, left =1cm and 0.5cm of intt] (leftt) {};       %% Coordin
+ 
+ 	
+ 	\end{tikzpicture}
+ 	\caption{Flight log management}
+ \end{figure}
+
+
+\newpage
+\section{Secure boot for firmware update}
+For securing the firmware update process, a bootloader with signing support is flashed upon the controller. The FMP public key is installed inside the bootloader code. In this way, whenever an attempt to upload a new firmware binary file is made,  a signature checking is performed. Only if the binary file is signed using the FMP private key, the flashing would be successful, otherwise, the code won't get outside the bootloader code, and new firmware won't get uploaded.
+Binary of the firmware is signed using the FMP private key.
+\newpage
+\begin{figure}
+ 	\tikzstyle{decision} = [diamond, draw, fill=red!20, 
+ 	text width=5.5em, text badly centered, inner sep=0pt]
+ 	\tikzstyle{block} = [rectangle, draw, fill=blue!20, 
+ 	text width=17em, rounded corners, minimum height=2em]
+ 	\tikzstyle{line} = [draw, -latex']
+ 	\tikzstyle{cloud} = [draw, ellipse,fill=red!20,
+ 	minimum height=4em]
+ 	\tikzstyle{decisionn} = [diamond, draw, fill=red!20, 
+ 	text width=4em, text badly centered, node distance=4cm, inner sep=0pt]
+ 	\tikzstyle{blockk} = [rectangle, draw, fill=blue!20, 
+ 	text width=14em, rounded corners, minimum height=2em]
+ 	\tikzstyle{blockk1} = [rectangle, draw, fill=red!20, 
+ 	text width=12em,  rounded corners, minimum height=2em]
+ 	\tikzstyle{blockk2} = [rectangle, draw, fill=pink!20, 
+ 	text width=14em,  rounded corners, minimum height=4em]
+ 	
+ 	\begin{tikzpicture}[node distance = 2cm, auto]\label{ams1}
+ 	% Place nodes
+ 	\node [blockk] (1) {From Management Server(MS):\\1)Firmware update is triggered.\\2) A binary file of firmware is signed using the  Flight Module Provider's(FMP) private key and send to MC. };
+ 	\node [blockk, below =1cm of 1] (2) {Inside MC\\1)A script will run to flash the signed binary firmware file onto the hardware.};
+ 	\node [blockk,below=1cm of 2] (3) { Inside RFM:\\The signed binary firmware file is validated using the public key of FMP key already installed in the bootloader code.};
+ 	\node [blockk,below left =1cm and 0cm of 3] (4) {If the signature is valid, then bootloader will asign memory  to the new firmware binary file .};
+ 	\node [blockk,below right=1cm and 0cm of 3] (5) {If signature is not valid, then the code will not exit the bootloader and hence firmware wont be able to get updated.};
+ 	
+ 	\path [line] (1) -- (2);
+ 	 \path [line] (2)-- (3);
+ 	 \path [line] (3) -| node[above]{Valid} (4);
+ 	\path [line] (3) -| node[above]{Not Valid}(5);
+ 	
+ 	 
+ 	
+ 	
+
+ 	
+ 	
+ 
+ 	%%\node [coordinate, left =1cm and 0.5cm of intt] (leftt) {};       %% Coordin
+ 
+ 	
+ 	\end{tikzpicture}
+ 	\caption{Secure Firmware Update}
+ \end{figure}
+
+\end{document}
